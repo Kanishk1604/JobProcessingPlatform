@@ -5,15 +5,13 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -u --no-install-recommends \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml /app/pyproject.toml
+COPY . /app
 
 RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir .
-
-COPY . /app
 
 EXPOSE 8000

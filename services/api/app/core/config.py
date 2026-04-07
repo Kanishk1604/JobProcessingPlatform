@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     app_host: str = "0.0.0.0"
     app_port: int = 8000
 
-    database_url: str = "postgresql+psycopg://postgres://postgres:postgres_db@postgres:5432/job_processing_db"
+    database_url: str = "postgresql+psycopg2://postgres://postgres:postgres_db@postgres:5432/job_processing_db"
     redis_url: str = "redis://localhost:6379/0"
 
     s3_endpoint_url: str = "http://localhost:9000"

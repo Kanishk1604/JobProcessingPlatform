@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from sqlalchemy import text
-from sqlachemy.orm import Session
+from sqlalchemy.orm import Session
 import boto3
 import redis
 
