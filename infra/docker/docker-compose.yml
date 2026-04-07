@@ -86,6 +86,22 @@ services:
     volumes:
       - ../../services/api:/app
 
+  worker:
+    build:
+      context: ../../services/worker
+      dockerfile: Dockerfile
+    container_name: doc-worker
+    environment:
+      DATABASE_URL: postgresql+psycopg2://document_platform:document_platform@postgres:5432/document_platform
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../../services/worker:/app
+
 volumes:
   postgres_data:
   redis_data:
