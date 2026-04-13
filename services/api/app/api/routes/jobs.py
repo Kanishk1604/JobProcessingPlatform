@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, HTTPException, File
 from sqlalchemy.orm import Session
 
 from app.core.celery_app import celery_app
@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.models.job import Job
 from app.models.document import Document
 from app.models.job_event import JobEvent
+from app.services.storage_service import StorageService
 from app.schemas.job import JobCreateRequest, JobResponse
 
 router = APIRouter(tags=["jobs"])
@@ -33,7 +34,7 @@ def creat_job(
         id=job_id,
         document_id=payload.document_id,
         job_type= payload.job_type,
-        status="Received",
+        status="QUEUED",
         priority=5,
         attempt_count=0,
         max_attempts=3,
@@ -46,7 +47,7 @@ def creat_job(
         job_id= job_id,
         event_type= "JOB_CREATED",
         payload_json={
-            "status": "RECEIVED",
+            "status": "QUEUED",
             "job_type": payload.job_type,
             "document_id": str(payload.document_id)
         }
@@ -73,3 +74,7 @@ def creat_job(
         },
     )
     return job
+
+
+
+

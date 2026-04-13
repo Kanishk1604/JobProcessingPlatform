@@ -5,7 +5,7 @@ from sqlalchemy import DateTime, ForeignKey, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from worker.app.db.session import Base
+from app.db.session import Base
 
 class JobEvent(Base):
     __tablename__ = "job_events"

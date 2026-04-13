@@ -12,6 +12,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY . /app
 
-RUN pip install --no-cache-dir --upgrade  pip && pip install --no-cache-dir .
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir .
 
 CMD ["celery", "-A", "app.celery_app.celery_app", "worker", "--loglevel=info"]

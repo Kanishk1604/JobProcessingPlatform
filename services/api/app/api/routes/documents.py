@@ -1,31 +1,74 @@
 import uuid 
-
-from fastapi import APIRouter, Depends, status
+from pathlib import Path
+from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.document import Document
 from app.schemas.document import DocumentCreateRequest, DocumentResponse
+from app.services.storage_service import StorageService
 
 router = APIRouter(tags= ["Documents"])
 
-@router.post("/documents", response_model = DocumentResponse, status_code= status.HTTP_201_CREATED)
-def create_document(
-    payload: DocumentCreateRequest,
+ALLOWED_CONTENT_TYPES = {
+    "text/plain",           #.txt
+    "application/pdf",
+}
+
+MAX_FILE_SIZE_BYTES =  10 * 1024 * 1024 
+
+
+@router.post("/documents/upload", response_model = DocumentResponse, status_code= status.HTTP_201_CREATED)
+async def create_document(
+    file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ) -> DocumentResponse:
-    settings = get_settings()
+
+    if not file.filename:
+        raise HTTPException(
+            status_code = status.HTTP_400_BAD_REQUEST,
+            detail= "Filename is required"
+        )
+    
+    content_type = file.content_type or "application/octet-stream"
+
+    if content_type not in ALLOWED_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported content type: {content_type}",
+        )
+
+    contents = await file.read()
+
+    if not contents:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File cannot be empty",
+        )
+
+    if len(contents) > MAX_FILE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File exceeds size limit",
+        )
 
     document_id = uuid.uuid4()
-    storage_key = f"raw/{document_id}/{payload.original_filename}"
+    safe_filename= Path(file.filename).name
+    storage_key = f"raw/{document_id}/{safe_filename}"
+
+    storage_service = StorageService()
+    storage_service.upload_bytes(
+        data=contents,
+        key = storage_key,
+        content_type = content_type,
+    )
 
     document = Document(
         id = document_id,
-        original_filename = payload.original_filename,
-        mime_type = payload.mime_type,
-        size_bytes = payload.size_bytes,
-        storage_bucket = settings.s3_bucket_name,
+        original_filename = safe_filename,
+        mime_type = content_type,
+        size_bytes = len(contents),
+        storage_bucket = storage_service.bucket_name,
         storage_key = storage_key,
     )
 

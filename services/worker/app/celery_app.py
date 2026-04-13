@@ -1,5 +1,5 @@
 from celery import Celery
-
+from app.db.base import Base
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -17,6 +17,7 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     task_track_started=True,
+    imports=("app.tasks.process_document",),
 )
 
 celery_app.autodiscover_tasks(["app.tasks"])

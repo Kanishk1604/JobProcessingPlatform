@@ -4,6 +4,7 @@ from app.api.routes.health import router as health_router
 from app.api.routes.documents import router as documents_router
 from app.api.routes.jobs import router as jobs_router
 from app.api.routes.job_queries import router as job_queries_router 
+from app.services.storage_service import StorageService
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -17,6 +18,11 @@ app.include_router(health_router, prefix="/v1")
 app.include_router(documents_router, prefix="/v1")
 app.include_router(jobs_router, prefix="/v1")
 app.include_router(job_queries_router, prefix="/v1")
+
+@app.on_event("startup")
+def on_startup() -> None:
+    storage_service= StorageService()
+    storage_service.ensure_bucket_exists()
 
 @app.get("/")
 def root() -> dict[str,str]:

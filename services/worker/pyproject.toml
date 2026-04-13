@@ -1,7 +1,7 @@
 [project]
 name = "document-platform-worker"
 version = "0.1.0"
-decription = "Document processing worker"
+description = "Document processing worker"
 requires-python = ">=3.12"
 dependencies = [
     "celery[redis]>=5.4,<6.0",
@@ -9,6 +9,7 @@ dependencies = [
     "psycopg2-binary>=2.9,<3.0",
     "pydantic>=2.8,<3.0",
     "pydantic-settings>=2.4,<3.0",
+    "boto3>=1.35,<2.0",
 ]
 
 [build-system]
