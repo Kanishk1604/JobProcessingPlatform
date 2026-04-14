@@ -3,6 +3,7 @@
 from datetime import datetime, UTC
 from uuid import UUID 
 
+from botocore.exceptions import BotoCoreError, ClientError
 from app.celery_app import celery_app
 from app.db.session import SessionLocal
 from app.models.document import Document
@@ -10,8 +11,16 @@ from app.models.job import Job
 from app.models.job_event import JobEvent
 from app.services.storage_service import StorageService
 
-@celery_app.task(name="worker.tasks.process_document")
-def process_document(job_id: str) -> dict:
+class SimulatedTransientError(Exception):
+    pass
+
+@celery_app.task(
+    name="worker.tasks.process_document",
+    bind=True,
+    max_retries=3,
+    default_retry_delay=5,
+)
+def process_document(self, job_id: str) -> dict:
     db = SessionLocal()
     storage_service = StorageService()
 
@@ -25,7 +34,7 @@ def process_document(job_id: str) -> dict:
         if document is None:
             job.status = "FAILED_TERMINAL"
             job.completed_at = datetime.now(UTC)
-            job.error_code = "Document_not_found"
+            job.error_code = "DOCUMENT_NOT_FOUND"
             job.error_message = "Document record not found"
             
             db.add(
@@ -54,6 +63,9 @@ def process_document(job_id: str) -> dict:
         )
 
         db.commit()
+        
+        if "retry-test" in document.original_filename and job.attempt_count < 3:
+            raise SimulatedTransientError (f"Simulated transient failure on attempt: {job.attempt_count}")
 
         if document.mime_type != "text/plain":
             raise ValueError (f"Unsupported mime type for v1 processor: {document.mime_type}")
@@ -85,8 +97,9 @@ def process_document(job_id: str) -> dict:
         
         db.commit()
 
-        return {"status": "ok", "job_id": job_id}
-    except Exception as exc:
+        return {"status": "ok", "job_id": job_id, "result_storage_key": result_key }
+
+    except ValueError as exc:
         db.rollback()
 
         job = db.get(Job, UUID(job_id))
@@ -94,17 +107,92 @@ def process_document(job_id: str) -> dict:
         if job is not None:
             job.status = "FAILED_TERMINAL"
             job.completed_at = datetime.now(UTC)
-            job.error_code = "PROCESSING_ERROR"
+            job.error_code = "UNSUPPORTED_TYPE"
             job.error_message = str(exc)
 
             db.add(
                 JobEvent(
                     job_id=job_id,
-                    event_type="JOB_FAILED",
-                    payload_json={
+                    event_type = "JOB_FAILED",
+                    payload_json ={
                         "status": "FAILED_TERMINAL",
+                        "error_code": "UNSUPPORTED_MIME_TYPE",
                         "error": str(exc),
                     },
+                )
+            )
+            db.commit()
+
+        raise
+
+    except (BotoCoreError, ClientError, ConnectionError, TimeoutError, SimulatedTransientError) as exc:
+        db.rollback()
+
+        job = db.get(Job, UUID(job_id))
+
+        if job is not None:
+            job.status = "FAILED_RETRYABLE"
+            job.completed_at = datetime.now(UTC)
+            job.error_code = "STORAGE_ERROR"
+            job.error_message = str(exc)
+
+            db.add(
+                JobEvent(
+                    job_id=job_id,
+                    event_type="JOB_RETRY_SCHEDULED",
+                    payload_json={
+                        "status": "FAILED_RETRYABLE",
+                        "error_code": "STORAGE_ERROR",
+                        "error": str(exc),
+                        "retry_count": self.request.retries +1,
+                    },
+                )
+            )
+            db.commit()
+        raise self.retry(exc=exc, countdown=5)
+
+    except Exception as exc:
+        db.rollback()
+
+        job = db.get(Job, UUID(job_id))
+
+        if job is not None:
+            if self.request.retries < self.max_retries:
+                job.status = "FAILED_RETRYABLE"
+                job.completed_at = datetime.now(UTC)
+                job.error_code = "PROCESSING_RETRYABLE_ERROR"
+                job.error_message = str(exc)
+
+                db.add(
+                    JobEvent(
+                        job_id = job_id,
+                        event_type= "JOB_RETRY_SCHEDULED",
+                        payload_json={
+                            "status_code": "FAILED_RETRYABLE",
+                            "error_code": "PROCESSING_RETRYABLE_ERROR",
+                            "error": str(exc),
+                            "retry_count" : self.request.retries +1,
+                        } 
+                    )
+                )
+
+                db.commit()
+                raise self.retry(exc=exc, countdown=5)
+
+            job.status = "FAILED_TERMINAL"
+            job.completed_at = datetime.now(UTC)
+            job.error_code = "PROCESSING_ERROR"
+            job.error_message = str(exc)
+
+            db.add(
+                JobEvent(
+                    job_id = job_id,
+                    event_type= "JOB_FAILED",
+                    payload_json={
+                        "status_code": "FAILED_TERMINAL",
+                        "error_code": "PROCESSING_ERROR",
+                        "error": str(exc),
+                    } 
                 )
             )
             db.commit()
