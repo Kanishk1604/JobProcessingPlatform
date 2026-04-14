@@ -12,6 +12,8 @@ from app.models.job_event import JobEvent
 from app.services.storage_service import StorageService
 from app.schemas.job import JobCreateRequest, JobResponse
 
+from app.observability.metrics import jobs_created_total
+
 router = APIRouter(tags=["jobs"])
 
 @router.post("/jobs",response_model= JobResponse, status_code=status.HTTP_201_CREATED)
@@ -73,6 +75,9 @@ def creat_job(
             "job_id": str(job.id),
         },
     )
+
+    jobs_created_total.inc()    #observability
+
     return job
 
 

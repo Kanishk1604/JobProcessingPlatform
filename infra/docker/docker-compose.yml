@@ -99,6 +99,8 @@ services:
       S3_SECRET_ACCESS_KEY: minioadmin
       S3_BUCKET_NAME: documents
       S3_REGION: us-east-1
+    ports:
+      - "9002:9002"
     depends_on:
       postgres:
         condition: service_healthy

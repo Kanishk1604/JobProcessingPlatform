@@ -8,6 +8,8 @@ from app.models.document import Document
 from app.schemas.document import DocumentCreateRequest, DocumentResponse
 from app.services.storage_service import StorageService
 
+from app.observability.metrics import documents_uploaded_total
+
 router = APIRouter(tags= ["Documents"])
 
 ALLOWED_CONTENT_TYPES = {
@@ -75,5 +77,7 @@ async def create_document(
     db.add(document)
     db.commit()
     db.refresh(document)
+
+    documents_uploaded_total.inc()  #observability
 
     return document

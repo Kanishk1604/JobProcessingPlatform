@@ -14,4 +14,4 @@ COPY . /app
 
 RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir .
 
-CMD ["celery", "-A", "app.celery_app.celery_app", "worker", "--loglevel=info"]
+CMD ["python", "-m", "app.main"]

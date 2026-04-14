@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 
 from app.api.routes.health import router as health_router
 from app.api.routes.documents import router as documents_router
@@ -7,6 +7,7 @@ from app.api.routes.job_queries import router as job_queries_router
 from app.services.storage_service import StorageService
 from app.core.config import get_settings
 
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 settings = get_settings()
 
 app = FastAPI(
@@ -31,3 +32,10 @@ def root() -> dict[str,str]:
         "environment": settings.app_env,
         "status" : "running",
     }
+
+@app.get("/metrics")
+def metrics():
+    return Response(
+        content=generate_latest(),
+        media_type=CONTENT_TYPE_LATEST,
+    )
