@@ -8,6 +8,7 @@ def main() -> None:
         [
             "worker",
             "--loglevel=info",
+            "--pool=solo",
         ]
     )
 
