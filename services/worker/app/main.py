@@ -8,7 +8,7 @@ def main() -> None:
         [
             "worker",
             "--loglevel=info",
-            "--pool=solo",
+            "--pool=solo",      #to maintain single main process instead of creating multiple child processes
         ]
     )
 

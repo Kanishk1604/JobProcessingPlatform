@@ -8,6 +8,11 @@ from app.services.storage_service import StorageService
 from app.core.config import get_settings
 
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+
+from app.db.session import SessionLocal
+from app.observability.job_state_metrics import refresh_job_state_gauges
+
+
 settings = get_settings()
 
 app = FastAPI(
@@ -35,7 +40,12 @@ def root() -> dict[str,str]:
 
 @app.get("/metrics")
 def metrics():
-    return Response(
-        content=generate_latest(),
-        media_type=CONTENT_TYPE_LATEST,
-    )
+    db = SessionLocal()
+    try:
+        refresh_job_state_gauges(db)
+        return Response(
+            content=generate_latest(),
+            media_type=CONTENT_TYPE_LATEST,
+        )
+    finally:
+        db.close()
